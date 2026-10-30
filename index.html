@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forever Love ❤️</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+html {
+    background: #000;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 15px 0 30px;
+    position: relative;
+}
+
+#heart {
+    position: relative;
+    z-index: 2;
+    width: min(94vw, 680px);
+    height: auto;
+    display: block;
+    flex-shrink: 0;
+}
+
+#effects {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="effects"></canvas>
+
+<canvas id="heart" width="1000" height="850"></canvas>
+
+<script>
+
+// =====================================
+// قلب نوشته‌ای عاشقانه
+// =====================================
+
+const canvas = document.getElementById("heart");
+const ctx = canvas.getContext("2d");
+
+const words = [
+"دوستت دارم","I Love You","Je t'aime","Te amo",
+"愛してる","사랑해","我爱你","Ti amo",
+"Ich liebe dich","Я тебя люблю","أحبك",
+"Seni seviyorum","Eu te amo","Te quiero",
+"Ik hou van jou","Kocham cię","Szeretlek",
+"Σ' αγαπώ","Mahal kita","Nakupenda",
+"אני אוהב אותך","Volim te","Te iubesc",
+"Обичам те","Rakastan sinua","Jag älskar dig",
+"Jeg elsker dig","Aš tave myliu","Miluji tě",
+"Ngiyakuthanda","T'estimo","Amo-te",
+"আমি তোমাকে ভালোবাসি","Saya cinta kamu",
+"Anh yêu em","Chan rak khun","Mi amas vin",
+"Ma armastan sind","Ljubim te","Obicham te",
+"Te quiero mucho","I love you forever",
+"Mo nifẹ rẹ","Te dua","S'agapo",
+"मैं तुमसे प्यार करता हूँ","T'estimo molt",
+"Ti amo tanto","Main tumse pyar karta hoon",
+"நான் உன்னை காதலிக்கிறேன்","Em yêu anh"
+];
+
+const palette = [
+"#ff003c",
+"#ff1744",
+"#ff2458",
+"#ff3355",
+"#ff4d6d",
+"#e60039"
+];
+
+const cx = 500;
+const cy = 405;
+const scale = 23;
+
+// معادله ریاضی قلب
+function point(t) {
+    return {
+        x: 16 * Math.pow(Math.sin(t), 3),
+        y: 13 * Math.cos(t)
+           - 5 * Math.cos(2*t)
+           - 2 * Math.cos(3*t)
+           - Math.cos(4*t)
+    };
+}
+
+// ساخت مرز ریاضی قلب
+const outline = [];
+
+for (let t = 0; t <= Math.PI * 2; t += 0.002) {
+    outline.push(point(t));
+}
+
+// تشخیص نقاط داخل قلب
+function inside(x, y) {
+    let hit = false;
+
+    for (
+        let i = 0, j = outline.length - 1;
+        i < outline.length;
+        j = i++
+    ) {
+        const a = outline[i];
+        const b = outline[j];
+
+        if (
+            (a.y > y) !== (b.y > y) &&
+            x < (b.x-a.x)*(y-a.y)/(b.y-a.y)+a.x
+        ) {
+            hit = !hit;
+        }
+    }
+
+    return hit;
+}
+
+// رسم نوشته‌ها داخل قلب
+function drawHeart() {
+
+    ctx.clearRect(0, 0, 1000, 850);
+
+    let index = 0;
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    const rowGap = 19;
+    const columnStep = 4;
+
+    for (let py = -340; py <= 340; py += rowGap) {
+
+        let segments = [];
+        let start = null;
+
+        for (let px = -440; px <= 440; px += columnStep) {
+
+            const ok = inside(
+                px / scale,
+                -py / scale
+            );
+
+            if (ok && start === null) {
+                start = px;
+            }
+
+            if (!ok && start !== null) {
+                segments.push([start, px-columnStep]);
+                start = null;
+            }
+        }
+
+        if (start !== null) {
+            segments.push([start, 440]);
+        }
+
+        for (const [left, right] of segments) {
+
+            const width = right - left;
+            const count = Math.max(1, Math.ceil(width / 75));
+            const cell = width / count;
+
+            for (let i = 0; i < count; i++) {
+
+                const word = words[index % words.length];
+
+                const x = cx + left + cell * (i + 0.5);
+                const y = cy + py;
+
+                const size = Math.max(
+                    7,
+                    Math.min(15, cell / (word.length * 0.55))
+                );
+
+                ctx.font = `bold ${size}px Arial, Tahoma`;
+                ctx.fillStyle = palette[index % palette.length];
+
+                ctx.shadowColor = "#ff003c";
+                ctx.shadowBlur = 5;
+
+                ctx.fillText(word, x, y, cell - 1);
+
+                index++;
+            }
+        }
+    }
+
+    ctx.shadowBlur = 0;
+}
+
+drawHeart();
+
+
+// =====================================
+// بارش قلب و ستاره‌های درخشان
+// =====================================
+
+const fx = document.getElementById("effects");
+const fctx = fx.getContext("2d");
+
+let W, H;
+let particles = [];
+
+function resizeFX() {
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    W = window.innerWidth;
+    H = window.innerHeight;
+
+    fx.width = W * dpr;
+    fx.height = H * dpr;
+
+    fx.style.width = W + "px";
+    fx.style.height = H + "px";
+
+    fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+window.addEventListener("resize", resizeFX);
+resizeFX();
+
+function createParticle(initial = false) {
+
+    const heart = Math.random() < 0.55;
+
+    return {
+        x: Math.random() * W,
+        y: initial ? Math.random() * H : -25,
+
+        size: heart
+            ? Math.random() * 13 + 7
+            : Math.random() * 3 + 1,
+
+        speed: Math.random() * 1.5 + 0.5,
+        drift: (Math.random() - 0.5) * 1.1,
+
+        rotation: Math.random() * Math.PI * 2,
+        rotateSpeed: (Math.random() - 0.5) * 0.025,
+
+        opacity: Math.random() * 0.55 + 0.3,
+        phase: Math.random() * Math.PI * 2,
+
+        type: heart ? "heart" : "star"
+    };
+}
+
+// تعداد ذرات
+for (let i = 0; i < 75; i++) {
+    particles.push(createParticle(true));
+}
+
+// رسم قلب‌های بارشی
+function drawHeartParticle(p) {
+
+    fctx.save();
+
+    fctx.translate(p.x, p.y);
+    fctx.rotate(p.rotation);
+    fctx.scale(p.size / 18, p.size / 18);
+
+    fctx.beginPath();
+
+    fctx.moveTo(0, 6);
+
+    fctx.bezierCurveTo(-22, -9, -12, -21, 0, -10);
+    fctx.bezierCurveTo(12, -21, 22, -9, 0, 6);
+
+    fctx.closePath();
+
+    fctx.fillStyle = `rgba(255,45,90,${p.opacity})`;
+
+    fctx.shadowColor = "#ff1744";
+    fctx.shadowBlur = 18;
+
+    fctx.fill();
+
+    fctx.restore();
+}
+
+// رسم ستاره‌ها
+function drawStar(p, time) {
+
+    const twinkle = 0.45 + 0.55 *
+        Math.sin(time * 0.003 + p.phase);
+
+    fctx.save();
+
+    fctx.globalAlpha = p.opacity * twinkle;
+
+    fctx.translate(p.x, p.y);
+
+    fctx.fillStyle = "#fff2f5";
+    fctx.shadowColor = "#ff3355";
+    fctx.shadowBlur = 15;
+
+    fctx.beginPath();
+
+    fctx.arc(0, 0, p.size * twinkle, 0, Math.PI * 2);
+
+    fctx.fill();
+
+    fctx.beginPath();
+
+    fctx.moveTo(-p.size * 3, 0);
+    fctx.lineTo(p.size * 3, 0);
+
+    fctx.moveTo(0, -p.size * 3);
+    fctx.lineTo(0, p.size * 3);
+
+    fctx.strokeStyle = "#ff6680";
+    fctx.lineWidth = 0.8;
+
+    fctx.stroke();
+
+    fctx.restore();
+}
+
+// انیمیشن بارش
+function animate(time) {
+
+    fctx.clearRect(0, 0, W, H);
+
+    for (const p of particles) {
+
+        p.y += p.speed;
+        p.x += p.drift;
+
+        p.rotation += p.rotateSpeed;
+
+        if (p.y > H + 30) {
+            Object.assign(p, createParticle(false));
+        }
+
+        if (p.x < -30) p.x = W + 20;
+        if (p.x > W + 30) p.x = -20;
+
+        if (p.type === "heart") {
+            drawHeartParticle(p);
+        } else {
+            drawStar(p, time);
+        }
+    }
+
+    requestAnimationFrame(animate);
+}
+
+requestAnimationFrame(animate);
+
+</script>
+
+</body>
+</html>
